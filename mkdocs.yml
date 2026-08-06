@@ -1,6 +1,9 @@
 site_name: 个人笔记
 site_description: 个人笔记与知识记录
 site_author: dezliu
+site_url: https://dezliu.github.io/note/
+repo_url: https://github.com/dezliu/note
+repo_name: dezliu/note
 
 theme:
   name: terminal

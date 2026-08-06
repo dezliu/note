@@ -2,6 +2,8 @@
 
 基于 [MkDocs](https://www.mkdocs.org/) + [Terminal](https://github.com/ntno/mkdocs-terminal) 的个人笔记 / 知识库。
 
+在线访问：https://dezliu.github.io/note/
+
 ## 环境要求
 
 - Python 3.9+
@@ -38,10 +40,22 @@ mkdocs build
 
 产物输出到 `site/` 目录。
 
+## 发布到 GitHub Pages
+
+推送到 `main` 后，GitHub Actions 会自动构建并部署。
+
+首次需要在仓库设置中开启 Pages：
+
+1. 打开 https://github.com/dezliu/note/settings/pages
+2. **Source** 选择 **GitHub Actions**
+3. 合并/推送本次部署相关提交后，等待 Actions 成功
+4. 访问 https://dezliu.github.io/note/
+
 ## 目录结构
 
 ```text
 .
+├── .github/workflows/ # GitHub Pages 自动部署
 ├── docs/              # 文档源文件
 │   ├── index.md       # 首页
 │   └── hello-world.md # Hello World 示例
