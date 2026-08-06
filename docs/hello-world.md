@@ -1,10 +1,10 @@
 # Hello World
 
-这是日志系统的第一篇文章。
+这是个人笔记的第一篇文章。
 
 ## 简介
 
-你好，世界！本站使用 [MkDocs](https://www.mkdocs.org/) 与 [Material for MkDocs](https://squidfunk.github.io/mkdocs-material/) 构建。
+你好，世界！本站使用 [MkDocs](https://www.mkdocs.org/) 与 [Terminal for MkDocs](https://github.com/ntno/mkdocs-terminal) 构建。
 
 ## 示例
 

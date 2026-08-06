@@ -1,6 +1,6 @@
-# 日志系统
+# 个人笔记
 
-基于 [MkDocs](https://www.mkdocs.org/) + [Material](https://squidfunk.github.io/mkdocs-material/) 的个人日志 / 知识库。
+基于 [MkDocs](https://www.mkdocs.org/) + [Terminal](https://github.com/ntno/mkdocs-terminal) 的个人笔记 / 知识库。
 
 ## 环境要求
 

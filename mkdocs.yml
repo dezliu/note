@@ -1,39 +1,13 @@
-site_name: 日志系统
-site_description: 个人日志与知识记录
+site_name: 个人笔记
+site_description: 个人笔记与知识记录
 site_author: dezliu
 
 theme:
-  name: material
-  language: zh
-  palette:
-    - media: "(prefers-color-scheme: light)"
-      scheme: default
-      primary: indigo
-      accent: indigo
-      toggle:
-        icon: material/brightness-7
-        name: 切换到深色模式
-    - media: "(prefers-color-scheme: dark)"
-      scheme: slate
-      primary: indigo
-      accent: indigo
-      toggle:
-        icon: material/brightness-4
-        name: 切换到浅色模式
-  features:
-    - navigation.instant
-    - navigation.tracking
-    - navigation.sections
-    - navigation.top
-    - search.suggest
-    - search.highlight
-    - content.code.copy
+  name: terminal
+  palette: dark
 
 plugins:
-  - search:
-      lang:
-        - zh
-        - en
+  - search
 
 markdown_extensions:
   - admonition
