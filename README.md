@@ -42,13 +42,36 @@ mkdocs build
 
 ## 发布到 GitHub Pages
 
-推送到 `main` 后，GitHub Actions 会自动构建并部署。
+公开仓库使用 GitHub Pages **免费**（含免费额度内的 GitHub Actions 构建分钟数）。本仓库为公开项目站点，无额外费用。
 
-首次需要在仓库设置中开启 Pages：
+### 访问地址怎么来的
+
+GitHub 对「用户/组织下的项目仓库」使用固定规则生成站点地址：
+
+```text
+https://<GitHub用户名>.github.io/<仓库名>/
+```
+
+对本仓库即：
+
+```text
+https://dezliu.github.io/note/
+```
+
+该地址写在 `mkdocs.yml` 的 `site_url` 中，构建时会据此生成正确的链接与资源路径。若将来改仓库名或换用户名，需同步更新 `site_url`。
+
+### 自动部署怎么工作
+
+1. 推送代码到 `main`（或手动在 Actions 里触发 `Deploy MkDocs to GitHub Pages`）
+2. Workflow（`.github/workflows/deploy-pages.yml`）安装依赖并执行 `mkdocs build`
+3. 将生成的 `site/` 目录发布到 GitHub Pages
+4. 稍等片刻后，打开 https://dezliu.github.io/note/ 即可访问
+
+### 首次开启（只需一次）
 
 1. 打开 https://github.com/dezliu/note/settings/pages
 2. **Source** 选择 **GitHub Actions**
-3. 合并/推送本次部署相关提交后，等待 Actions 成功
+3. 推送后到 https://github.com/dezliu/note/actions 确认部署成功
 4. 访问 https://dezliu.github.io/note/
 
 ## 目录结构
