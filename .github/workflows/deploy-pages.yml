@@ -1,4 +1,4 @@
-name: Deploy MkDocs to GitHub Pages
+name: Deploy to GitHub Pages
 
 on:
   push:
@@ -21,21 +21,45 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Build landing (terminal-portfolio)
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install landing dependencies
+        run: cd landing && npm install
+
+      - name: Build landing
+        run: cd landing && npm run build
+
+      - name: Prepare output directory
+        run: |
+          mkdir -p _site
+          cp -r landing/dist/* _site/
+
+      # Build MkDocs docs
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Install dependencies
+      - name: Install MkDocs dependencies
         run: pip install -r requirements.txt
 
-      - name: Build
+      - name: Build MkDocs
         run: mkdocs build --strict
 
+      - name: Copy docs to output
+        run: |
+          mkdir -p _site/docs
+          cp -r site-docs/* _site/docs/
+
+      # Upload combined site
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: _site
 
   deploy:
     needs: build

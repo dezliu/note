@@ -11,6 +11,7 @@ env/
 
 # MkDocs
 site/
+site-docs/
 .cache/
 
 # IDE / Editor

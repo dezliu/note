@@ -1,0 +1,539 @@
+---
+import BaseHead from "../components/BaseHead.astro";
+import Footer from "../components/Footer.astro";
+import Header from "../components/Header.astro";
+import { SITE_DESCRIPTION, SITE_TITLE, terminalConfig } from "../consts";
+import fileSystemData from "../data/fileSystem.json" assert { type: "json" };
+
+// Build welcome message (no ASCII art)
+const welcomeLines = [
+  `Welcome to ${terminalConfig.username}'s terminal.`,
+  `Type 'help' to see available commands.`,
+  `Type 'docs' to visit my knowledge base.`,
+  `Use ls/cd/cat to browse docs directly.`,
+];
+
+// Serialize config for client-side
+const clientConfig = {
+  username: terminalConfig.username,
+  hostname: terminalConfig.hostname,
+  welcomeMessage: welcomeLines,
+  customCommands: Object.fromEntries(
+    Object.entries(terminalConfig.customCommands).map(([key, val]) => [
+      key,
+      {
+        description: val.description,
+        output: typeof val.output === 'function' ? '__function__' : val.output,
+        action: val.action,
+        target: val.target,
+      }
+    ])
+  ),
+  fileSystem: fileSystemData,
+};
+---
+
+<!doctype html>
+<html lang="en" data-theme="light">
+	<head>
+		<BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
+	</head>
+	<body>
+		<div
+			class="min-h-screen flex flex-col"
+			style={{
+				backgroundColor: "var(--theme-background)",
+				color: "var(--theme-text)",
+			}}
+		>
+			<Header />
+			<!-- Terminal area -->
+			<div
+				id="terminal-container"
+				class="font-mono overflow-y-auto h-[calc(100vh-160px)] p-2 sm:p-4"
+				style="text-align:left;background-color:var(--theme-background);color:var(--theme-text);font-family:var(--theme-fontFamily);font-size:var(--theme-fontSize);"
+			>
+				<!-- Command output area -->
+				<div id="terminal-output" class="space-y-1"></div>
+				<!-- Input prompt -->
+				<div id="input-line" class="space-y-1 mt-1">
+					<div style="color:var(--theme-promptUser)">╭─{terminalConfig.username}@{terminalConfig.hostname} <span id="cwd-display" style="color:var(--theme-info)">~</span></div>
+					<div style="color:var(--theme-promptUser)">─<span style="color:var(--theme-promptSymbol)">$ </span>
+						<input
+							id="terminal-input"
+							type="text"
+							autofocus
+							autocomplete="off"
+							spellcheck="false"
+							class="bg-transparent border-none outline-none font-mono text-xs sm:text-sm"
+							style="color:var(--theme-text);"
+						/>
+					</div>
+				</div>
+			</div>
+
+			<!-- Preview Modal -->
+			<div id="preview-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background-color:rgba(0,0,0,0.5);">
+				<div class="relative w-full max-w-4xl max-h-[85vh] flex flex-col" style="background-color:var(--theme-background);border:1px solid var(--theme-border);border-radius:8px;">
+					<!-- Modal header -->
+					<div class="flex items-center justify-between px-4 py-3" style="border-bottom:1px solid var(--theme-border);">
+						<span id="preview-filename" class="font-bold text-sm" style="color:var(--theme-primary);"></span>
+						<button id="preview-close" class="px-3 py-1 text-sm rounded hover:opacity-75" style="color:var(--theme-muted);border:1px solid var(--theme-border);"></button>
+					</div>
+					<!-- Modal content -->
+					<div id="preview-content" class="overflow-y-auto p-4 flex-1 prose" style="color:var(--theme-text);"></div>
+				</div>
+			</div>
+
+			<Footer />
+		</div>
+	</body>
+</html>
+
+<script define:vars={{ config: clientConfig }}>
+const tc = config;
+const JOKES = [
+  "Why do programmers prefer dark mode? Because light attracts bugs!",
+  "How many programmers does it take to change a light bulb? None, that's a hardware problem!",
+  "Why do Java developers wear glasses? Because they can't C#!",
+  "There are only 10 types of people in the world: those who understand binary and those who don't.",
+  "A SQL query goes into a bar, walks up to two tables and asks: 'Can I join you?'"
+];
+
+let history = [];
+let histIdx = -1;
+
+// Virtual file system state
+let cwd = ''; // current working directory path (empty = root)
+let cwdStack = []; // for tracking navigation history
+
+const $ = (id) => document.getElementById(id);
+const output = () => $("terminal-output");
+const container = () => $("terminal-container");
+const inputEl = () => $("terminal-input");
+const cwdDisplay = () => $("cwd-display");
+
+// File system helpers
+function resolvePath(pathStr) {
+  if (!pathStr || pathStr === '~') return '';
+  if (pathStr === '.') return cwd;
+  if (pathStr === '..') {
+    const parts = cwd.split('/').filter(Boolean);
+    parts.pop();
+    return parts.join('/');
+  }
+  if (pathStr.startsWith('/')) return pathStr.replace(/^\/+/, '');
+  return cwd ? `${cwd}/${pathStr}` : pathStr;
+}
+
+function findNode(path) {
+  if (!path) return tc.fileSystem;
+  const parts = path.split('/').filter(Boolean);
+  let node = tc.fileSystem;
+  for (const part of parts) {
+    if (!Array.isArray(node)) return null;
+    const child = node.find(n => n.name === part);
+    if (!child) return null;
+    node = child.type === 'dir' ? child.children : child;
+  }
+  return node;
+}
+
+function getCwdDisplay() {
+  if (!cwd) return '~';
+  return '~/'.concat(cwd);
+}
+
+function updateCwdDisplay() {
+  const el = cwdDisplay();
+  if (el) el.textContent = getCwdDisplay();
+}
+
+function appendLine(text, color, isHTML = false) {
+  const div = document.createElement("div");
+  div.style.textAlign = "left";
+  if (isHTML) {
+    div.innerHTML = text;
+  } else {
+    div.textContent = text;
+  }
+  if (color) div.style.color = color;
+  output().appendChild(div);
+}
+
+function printPrompt(cmdText) {
+  const line = document.createElement("div");
+  line.innerHTML =
+    '<div style="color:var(--theme-promptUser)">╭─' + tc.username + "@" + tc.hostname + ' <span style="color:var(--theme-info)">' + getCwdDisplay() + '</span></div>' +
+    '<div style="color:var(--theme-promptUser)">╰─<span style="color:var(--theme-promptSymbol)">$ </span><span>' + (cmdText || '') + '</span></div>';
+  output().appendChild(line);
+}
+
+function scroll() {
+  const c = container();
+  if (c) c.scrollTop = c.scrollHeight;
+}
+
+// Clickable file/dir rendering
+function renderClickableEntry(entry, indent = 0) {
+  const prefix = '  '.repeat(indent);
+  const span = document.createElement('span');
+  span.style.cursor = 'pointer';
+  span.style.textAlign = 'left';
+  
+  if (entry.type === 'dir') {
+    span.style.color = 'var(--theme-info)';
+    span.textContent = prefix + entry.name + '/';
+    span.title = 'Click to cd into ' + entry.name;
+    span.addEventListener('click', () => {
+      const newPath = cwd ? `${cwd}/${entry.name}` : entry.name;
+      handleCommand(`cd ${newPath}`);
+    });
+  } else {
+    span.style.color = 'var(--theme-text)';
+    span.textContent = prefix + entry.name;
+    span.title = 'Click to preview ' + entry.name;
+    span.addEventListener('click', () => {
+      const fullPath = entry.path || (cwd ? `${cwd}/${entry.name}` : entry.name);
+      openPreview(fullPath, entry.name);
+    });
+  }
+  
+  return span;
+}
+
+// Tab completion for file/directory names
+function completePath(partial) {
+  const node = findNode(cwd);
+  if (!node || !Array.isArray(node)) return null;
+  
+  const lastSlash = partial.lastIndexOf('/');
+  const dirPart = lastSlash >= 0 ? partial.substring(0, lastSlash + 1) : '';
+  const namePart = lastSlash >= 0 ? partial.substring(lastSlash + 1) : partial;
+  
+  // Resolve the directory to search in
+  let searchNode = node;
+  if (dirPart) {
+    const resolvedDir = resolvePath(dirPart.slice(0, -1));
+    searchNode = findNode(resolvedDir);
+    if (!searchNode || !Array.isArray(searchNode)) return null;
+  }
+  
+  const matches = searchNode.filter(n => n.name.startsWith(namePart));
+  
+  if (matches.length === 1) {
+    const match = matches[0];
+    const completed = dirPart + match.name + (match.type === 'dir' ? '/' : '');
+    return completed;
+  } else if (matches.length > 1) {
+    // Show possible completions
+    matches.forEach(m => {
+      const display = m.type === 'dir' ? m.name + '/' : m.name;
+      appendLine(display, 'var(--theme-info)');
+    });
+    scroll();
+    return null;
+  }
+  return null;
+}
+
+function findFileByPath(filePath) {
+  const parts = filePath.split('/').filter(Boolean);
+  let node = tc.fileSystem;
+  for (const part of parts) {
+    if (!Array.isArray(node)) return null;
+    const child = node.find(n => n.name === part);
+    if (!child) return null;
+    node = child.type === 'dir' ? child.children : child;
+  }
+  return node && node.type === 'file' ? node : null;
+}
+
+// Preview modal
+function openPreview(filePath, fileName) {
+  const modal = $("preview-modal");
+  const filenameEl = $("preview-filename");
+  const contentEl = $("preview-content");
+  
+  filenameEl.textContent = fileName;
+  contentEl.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--theme-muted);">Loading...</div>';
+  modal.classList.remove('hidden');
+  
+  // Find file content from embedded file system
+  const fileNode = findFileByPath(filePath);
+  if (fileNode && fileNode.content) {
+    import('marked').then(({ marked }) => {
+      contentEl.innerHTML = marked.parse(fileNode.content);
+    }).catch(() => {
+      contentEl.textContent = fileNode.content;
+    });
+  } else {
+    contentEl.innerHTML = '<div style="color:var(--theme-error);padding:2rem;">Failed to load: ' + fileName + '</div>';
+  }
+}
+
+function closePreview() {
+  $("preview-modal").classList.add('hidden');
+  inputEl()?.focus();
+}
+
+// Command handlers
+function handleCommand(raw) {
+  const cmd = raw.trim();
+  if (!cmd) return;
+
+  history.unshift(cmd);
+  histIdx = -1;
+
+  printPrompt(cmd);
+
+  const parts = cmd.split(/\s+/);
+  const command = parts[0];
+  const args = parts.slice(1);
+
+  // Built-in commands
+  if (command === "clear" || command === "cls") {
+    output().innerHTML = "";
+    return;
+  }
+
+  if (command === "help" || command === "h") {
+    const lines = ["Available commands:", ""];
+    const builtins = [
+      ["help", "Show this help message"],
+      ["clear", "Clear the terminal"],
+      ["neofetch", "Display system information"],
+      ["about", "About me"],
+      ["whoami", "Who am I"],
+      ["skills", "List my skills"],
+      ["date", "Show current date"],
+      ["pwd", "Print working directory"],
+      ["ls", "List files in current directory"],
+      ["cd", "Change directory"],
+      ["cat", "Preview a markdown file"],
+      ["uptime", "Show uptime"],
+    ];
+    builtins.forEach(([k, v]) => lines.push("  " + k.padEnd(14) + "- " + v));
+    Object.entries(tc.customCommands).forEach(([k, v]) => {
+      lines.push("  " + k.padEnd(14) + "- " + v.description);
+    });
+    lines.forEach(l => appendLine(l, "var(--theme-text)"));
+    scroll();
+    return;
+  }
+
+  if (command === "neofetch") {
+    const lines = [
+      "       .:'          " + tc.username + "@" + tc.hostname,
+      "   _ :'_'           ---------------------",
+      "  .'  _  `.",
+      "  :   _   :          OS: macOS",
+      "  :  (_)_  :          Host: " + tc.hostname,
+      "  :   _    :          Shell: zsh",
+      "  `.  _  .'          Terminal: browser",
+      "    `.'",
+    ];
+    lines.forEach(l => appendLine(l, "var(--theme-primary)"));
+    scroll();
+    return;
+  }
+
+  if (command === "about" || command === "whoami") {
+    ["Name: " + tc.username, "", "Welcome to my terminal portfolio!", "Type 'help' for commands.", "Type 'docs' to visit knowledge base."].forEach(l => appendLine(l, "var(--theme-text)"));
+    scroll();
+    return;
+  }
+
+  if (command === "skills") {
+    appendLine("Skills & Technologies:", "var(--theme-primary)");
+    appendLine("Java, Python, Linux, Docker", "var(--theme-text)");
+    scroll();
+    return;
+  }
+
+  if (command === "date") {
+    appendLine(new Date().toString(), "var(--theme-text)");
+    scroll();
+    return;
+  }
+
+  if (command === "pwd") {
+    appendLine("/home/" + tc.username + (cwd ? "/" + cwd : ""), "var(--theme-text)");
+    scroll();
+    return;
+  }
+
+  // ls command
+  if (command === "ls") {
+    const showLong = args.includes('-l') || args.includes('-la');
+    const targetArg = args.find(a => !a.startsWith('-'));
+    // No argument: list current directory
+    const resolvedPath = targetArg ? resolvePath(targetArg) : cwd;
+    const node = findNode(resolvedPath);
+    
+    if (!node || !Array.isArray(node)) {
+      appendLine("ls: cannot access '" + (targetPath || '.') + "': No such file or directory", "var(--theme-error)");
+      scroll();
+      return;
+    }
+
+    if (showLong) {
+      node.forEach(entry => {
+        const type = entry.type === 'dir' ? 'drwxr-xr-x' : '-rw-r--r--';
+        const size = entry.type === 'dir' ? '4096' : String(entry.size || 0);
+        const name = entry.type === 'dir' ? entry.name + '/' : entry.name;
+        const color = entry.type === 'dir' ? 'var(--theme-info)' : 'var(--theme-text)';
+        appendLine(`${type}  ${size.padStart(8)}  ${name}`, color);
+      });
+    } else {
+      const line = document.createElement('div');
+      line.style.textAlign = 'left';
+      node.forEach((entry, i) => {
+        const clickable = renderClickableEntry(entry);
+        line.appendChild(clickable);
+        if (i < node.length - 1) {
+          line.appendChild(document.createTextNode('  '));
+        }
+      });
+      output().appendChild(line);
+    }
+    scroll();
+    return;
+  }
+
+  // cd command
+  if (command === "cd") {
+    const target = args[0] || '';
+    if (!target || target === '~') {
+      cwd = '';
+      updateCwdDisplay();
+      return;
+    }
+    const resolvedPath = resolvePath(target);
+    const node = findNode(resolvedPath);
+    if (!node || !Array.isArray(node)) {
+      appendLine("cd: " + target + ": No such directory", "var(--theme-error)");
+      scroll();
+      return;
+    }
+    cwd = resolvedPath;
+    updateCwdDisplay();
+    return;
+  }
+
+  // cat command
+  if (command === "cat") {
+    const target = args[0];
+    if (!target) {
+      appendLine("cat: missing file argument", "var(--theme-error)");
+      scroll();
+      return;
+    }
+    const resolvedPath = resolvePath(target);
+    const node = findNode(resolvedPath);
+    if (!node || node.type !== 'file') {
+      appendLine("cat: " + target + ": No such file", "var(--theme-error)");
+      scroll();
+      return;
+    }
+    openPreview(resolvedPath, node.name);
+    return;
+  }
+
+  if (command === "uptime" || command === "uname") {
+    appendLine("browser terminal - " + navigator.platform, "var(--theme-text)");
+    scroll();
+    return;
+  }
+
+  // Custom commands
+  const custom = tc.customCommands[command];
+  if (custom) {
+    if (custom.action === "navigate" || custom.action === "external") {
+      appendLine("Opening: " + custom.target, "var(--theme-primary)");
+      window.open(custom.target, custom.action === "external" ? "_blank" : "_self");
+    } else if (custom.output === "__function__") {
+      if (command === "joke") {
+        appendLine(JOKES[Math.floor(Math.random() * JOKES.length)], "var(--theme-text)");
+      }
+    } else if (Array.isArray(custom.output)) {
+      custom.output.forEach(l => appendLine(l, "var(--theme-text)"));
+    }
+    scroll();
+    return;
+  }
+
+  appendLine("command not found: " + command + ". Type 'help' for available commands.", "var(--theme-error)");
+  scroll();
+}
+
+// Initialize
+document.addEventListener("DOMContentLoaded", () => {
+  const inp = inputEl();
+  if (!inp) return;
+
+  // Print welcome message
+  tc.welcomeMessage.forEach(l => appendLine(l, "var(--theme-primary)"));
+  appendLine(""); // blank line
+
+  inp.focus();
+
+  inp.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const val = inp.value;
+      inp.value = "";
+      handleCommand(val);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (histIdx < history.length - 1) {
+        histIdx++;
+        inp.value = history[histIdx];
+      }
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (histIdx > 0) {
+        histIdx--;
+        inp.value = history[histIdx];
+      } else {
+        histIdx = -1;
+        inp.value = "";
+      }
+    } else if (e.key === "Tab") {
+      e.preventDefault();
+      const val = inp.value.trim();
+      if (val) {
+        // Try file/path completion first
+        const completed = completePath(val);
+        if (completed) {
+          inp.value = completed;
+        } else {
+          // Fallback to command completion
+          const allCmds = ["help","clear","neofetch","about","whoami","skills","date","pwd","ls","cd","cat","uptime","uname", ...Object.keys(tc.customCommands)];
+          const match = allCmds.find(c => c.startsWith(val));
+          if (match) inp.value = match;
+        }
+      }
+    } else if (e.ctrlKey && e.key === "l") {
+      e.preventDefault();
+      output().innerHTML = "";
+    }
+  });
+
+  // Keep focus on input when clicking terminal area
+  container()?.addEventListener("click", (e) => {
+    if (e.target === container() || e.target === output()) {
+      inp.focus();
+    }
+  });
+
+  // Preview modal close handlers
+  $("preview-close")?.addEventListener("click", closePreview);
+  $("preview-modal")?.addEventListener("click", (e) => {
+    if (e.target === $("preview-modal")) closePreview();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closePreview();
+  });
+});
+</script>

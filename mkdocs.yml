@@ -1,7 +1,8 @@
 site_name: 个人笔记
 site_description: 个人笔记与知识记录
 site_author: dezliu
-site_url: https://dezliu.github.io/note/
+site_url: https://dezliu.github.io/note/docs/
+site_dir: site-docs
 repo_url: https://github.com/dezliu/note
 repo_name: dezliu/note
 
