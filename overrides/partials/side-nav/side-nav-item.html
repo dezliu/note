@@ -1,0 +1,54 @@
+{%- import 'macros/side-nav/side-nav-item-class.j2' as class_helper with context -%}
+{%- import 'macros/side-nav/side-nav-item.j2' as item_helper with context -%}
+{%- import 'macros/side-nav/section-index-page-title.j2' as index_helper with context -%}
+
+{# ── 渲染单个导航项（链接或纯文本） ── #}
+{% macro side_nav_item( nav_item ) -%}
+    {% set macro_ns = namespace(class="") %}
+    {% set macro_ns.class = class_helper.get_class( nav_item ) -%}
+    {% if "navigation.side.indexes" in features and nav_item.title == index_helper.get_section_index_page_title() %}
+        {{ item_helper.index_item( nav_item, macro_ns.class ) }}
+    {% else %}
+        {{ item_helper.non_index_item( nav_item, macro_ns.class ) }}
+    {% endif %}
+{%- endmacro -%}
+
+{# ── 检查子树中是否有活跃页面 ── #}
+{% macro has_active_child(items) -%}
+    {%- for c in items -%}
+        {%- if c.active -%}{{ true }}{%- endif -%}
+        {%- if c.children -%}{{ has_active_child(c.children) }}{%- endif -%}
+    {%- endfor -%}
+{%- endmacro %}
+
+{# ── 递归渲染子导航（可折叠） ── #}
+{% macro render_children(nav_items) %}
+    <ul class="terminal-mkdocs-side-nav-li-ul">
+    {% for child in nav_items %}
+        <li class="terminal-mkdocs-side-nav-li-ul-li">
+        {% if child.children %}
+            {% set active = has_active_child(child.children) %}
+            <details class="side-nav-details"{% if active %} open{% endif %}>
+                <summary>{{ side_nav_item( child ) }}</summary>
+                {{ render_children( child.children ) }}
+            </details>
+        {% else %}
+            {{ side_nav_item( child ) }}
+        {% endif %}
+        </li>
+    {% endfor %}
+    </ul>
+{% endmacro %}
+
+{# ── 主入口：渲染顶层导航项 ── #}
+<li class="terminal-mkdocs-side-nav-li">
+    {% if nav_item.children %}
+        {% set active = has_active_child(nav_item.children) %}
+        <details class="side-nav-details"{% if active %} open{% endif %}>
+            <summary>{{ side_nav_item( nav_item ) }}</summary>
+            {{ render_children( nav_item.children ) }}
+        </details>
+    {% else %}
+        {{ side_nav_item( nav_item ) }}
+    {% endif %}
+</li>

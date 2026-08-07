@@ -1,0 +1,171 @@
+/* ════════════════════════════════════════════
+   侧边栏 — IDEA 风格可折叠目录树
+   ══════════════════════════════════════════════ */
+
+/* ─ 重置：覆盖 terminal 主题对 ul/li 的全局样式 ── */
+.terminal-mkdocs-side-nav-items,
+.terminal-mkdocs-side-nav-items ul {
+    list-style: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.terminal-mkdocs-side-nav-items li,
+.terminal-mkdocs-side-nav-items li > ul > li {
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+.terminal-mkdocs-side-nav-items li::after,
+.terminal-mkdocs-side-nav-items li > ul > li::after {
+    content: none !important;
+    display: none !important;
+}
+
+/* ── 导航链接/span 基础样式 ── */
+.terminal-mkdocs-side-nav-item,
+span.terminal-mkdocs-side-nav-item--active {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 6px;
+    font-size: 0.82em;
+    line-height: 1.5;
+    text-decoration: none;
+    color: inherit;
+    border-radius: 3px;
+    transition: background 0.12s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-style: normal;
+    font-weight: 400;
+}
+
+.terminal-mkdocs-side-nav-item:hover {
+    background: rgba(0, 0, 0, 0.06);
+    text-decoration: none;
+}
+
+/* 活跃页面高亮 */
+span.terminal-mkdocs-side-nav-item--active {
+    background: rgba(0, 0, 0, 0.08);
+    font-weight: 600;
+    color: inherit;
+}
+
+/* 分组标题（不可点击的 section） */
+span.terminal-mkdocs-side-nav-section-no-index {
+    color: inherit;
+    opacity: 0.9;
+    font-weight: 600;
+    font-size: 0.82em;
+    line-height: 1.5;
+    padding: 3px 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* ── 顶层导航项间距 ── */
+.terminal-mkdocs-side-nav-items > .terminal-mkdocs-side-nav-li {
+    margin-top: 6px;
+}
+
+/* ── <details> 折叠容器 ── */
+.side-nav-details {
+    margin: 0;
+    padding: 0;
+}
+
+/* ── <summary> 可点击折叠头 ─ */
+.side-nav-details > summary {
+    list-style: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 0;
+    border-radius: 3px;
+    outline: none;
+}
+
+.side-nav-details > summary::-webkit-details-marker {
+    display: none;
+}
+
+/* 折叠箭头 — 小三角 */
+.side-nav-details > summary::before {
+    content: "";
+    display: inline-block;
+    width: 16px;
+    height: 20px;
+    flex-shrink: 0;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 10px 10px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6 4l4 4-4 4' fill='none' stroke='%23444' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    transition: transform 0.15s ease;
+    opacity: 0.6;
+}
+
+.side-nav-details > summary:hover::before {
+    opacity: 1;
+}
+
+.side-nav-details[open] > summary::before {
+    transform: rotate(90deg);
+}
+
+/* summary 内的链接/span 占满宽度 */
+.side-nav-details > summary > * {
+    flex: 1;
+    min-width: 0;
+}
+
+/* ─ 子级列表：缩进 + 树线 ── */
+.side-nav-details > .terminal-mkdocs-side-nav-li-ul {
+    margin: 0 !important;
+    padding: 0 !important;
+    position: relative;
+}
+
+/* 树线：左侧竖线 */
+.side-nav-details > .terminal-mkdocs-side-nav-li-ul::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 2px;
+    left: 10px;
+    width: 1px;
+    background: rgba(0, 0, 0, 0.15);
+}
+
+/* 每个子项的缩进 */
+.terminal-mkdocs-side-nav-li-ul > .terminal-mkdocs-side-nav-li-ul-li {
+    position: relative;
+    padding-left: 20px !important;
+    margin: 0 !important;
+}
+
+/* 树线：每个子项的水平短线（L 形拐角） */
+.terminal-mkdocs-side-nav-li-ul > .terminal-mkdocs-side-nav-li-ul-li::before {
+    content: "";
+    position: absolute;
+    top: 12px;
+    left: 10px;
+    width: 8px;
+    height: 1px;
+    background: rgba(0, 0, 0, 0.15);
+}
+
+/* 嵌套 details 内的子列表也需要缩进 */
+.side-nav-details .side-nav-details > .terminal-mkdocs-side-nav-li-ul > .terminal-mkdocs-side-nav-li-ul-li {
+    padding-left: 20px !important;
+}
+
+/*  无子项的叶子链接也需要缩进 ─ */
+.terminal-mkdocs-side-nav-li-ul > .terminal-mkdocs-side-nav-li-ul-li > a,
+.terminal-mkdocs-side-nav-li-ul > .terminal-mkdocs-side-nav-li-ul-li > span {
+    position: relative;
+}

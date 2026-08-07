@@ -79,9 +79,13 @@ https://dezliu.github.io/note/
 ```text
 .
 ├── .github/workflows/ # GitHub Pages 自动部署
-├── docs/              # 文档源文件
-│   ├── index.md       # 首页
-│   └── hello-world.md # Hello World 示例
+├── docs/              # 文档源文件（按文件夹组织）
+│   ├── index.md       # 首页（目录由 hook 自动生成）
+│   ├── hello-world.md
+│   ├── java/          # 示例：Java 目录（可再嵌套子目录）
+│   └── ai/            # 示例：AI 目录
+├── hooks/
+│   └── folder_toc.py  # 首页可展开目录树
 ├── mkdocs.yml         # MkDocs 配置
 ├── requirements.txt   # Python 依赖
 └── README.md
@@ -89,6 +93,8 @@ https://dezliu.github.io/note/
 
 ## 写文章
 
-1. 在 `docs/` 下新增 `.md` 文件
-2. 在 `mkdocs.yml` 的 `nav` 中添加导航项
-3. 保存后本地预览会自动热更新
+1. 在 `docs/` 下按主题新建文件夹（如 `docs/java/`、`docs/ai/xxx/`）
+2. 在文件夹内新增 `.md` 文件；可用 `index.md` 作为该目录概览
+3. 在 `mkdocs.yml` 的 `nav` 中按同样层级添加导航项（侧栏用）
+4. 首页「目录」会根据文件夹结构自动生成，支持多层展开，无需手写
+5. 保存后本地预览会自动热更新
