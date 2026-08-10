@@ -297,7 +297,7 @@ export const profileConfig: ProfileConfig = {
     brandName: "dezliu",
     brandUrl: "/note/",
     links: [
-      { name: "docs", path: "https://dezliu.github.io/note/", external: true, color: "var(--theme-primary)" },
+      { name: "docs", path: "https://dezliu.github.io/note/docs/", external: true, color: "var(--theme-primary)" },
       { name: "gh", path: "https://github.com/dezliu", external: true, color: "var(--theme-muted)" }
     ],
     systemInfo: {
