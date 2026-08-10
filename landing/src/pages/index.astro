@@ -67,9 +67,11 @@ const clientConfig = {
 							spellcheck="false"
 							class="bg-transparent border-none outline-none"
 							style="color:var(--theme-text);font-family:inherit;font-size:inherit;"
-						/><span id="vi-mode-indicator" style="color:var(--theme-info);margin-left:1ch;"></span>
+						/>
 					</div>
 				</div>
+				<!-- Vi mode status line (shown below the prompt) -->
+				<div id="vi-mode-indicator" class="mt-1" style="display:none;color:var(--theme-error);"></div>
 			</div>
 
 			<!-- Preview Modal -->
@@ -193,7 +195,8 @@ function setViMode(mode) {
   const inp = inputEl();
   if (ind) {
     ind.textContent = mode === 'normal' ? '-- NORMAL --' : '';
-    ind.style.color = mode === 'normal' ? 'var(--theme-error)' : '';
+    ind.style.display = mode === 'normal' ? '' : 'none';
+    ind.style.color = 'var(--theme-error)';
   }
   if (inp) {
     inp.style.caretColor = mode === 'normal' ? 'transparent' : '';
