@@ -58,15 +58,15 @@ const clientConfig = {
 				<!-- Input prompt -->
 				<div id="input-line" class="space-y-1 mt-1">
 					<div style="color:var(--theme-promptUser)">╭─{terminalConfig.username}@{terminalConfig.hostname} <span id="cwd-display" style="color:var(--theme-info)">~</span></div>
-					<div style="color:var(--theme-promptUser)">─<span style="color:var(--theme-promptSymbol)">$ </span>
+					<div style="color:var(--theme-promptUser)">╰─<span style="color:var(--theme-promptSymbol)">$ </span>
 						<input
 							id="terminal-input"
 							type="text"
 							autofocus
 							autocomplete="off"
 							spellcheck="false"
-							class="bg-transparent border-none outline-none font-mono text-xs sm:text-sm"
-							style="color:var(--theme-text);"
+							class="bg-transparent border-none outline-none"
+							style="color:var(--theme-text);font-family:inherit;font-size:inherit;"
 						/>
 					</div>
 				</div>
