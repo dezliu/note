@@ -70,8 +70,6 @@ const clientConfig = {
 						/>
 					</div>
 				</div>
-				<!-- Vi mode status line (shown below the prompt) -->
-				<div id="vi-mode-indicator" class="mt-1" style="display:none;color:var(--theme-error);"></div>
 			</div>
 
 			<!-- Preview Modal -->
@@ -191,13 +189,11 @@ function printPrompt(cmdText) {
 function setViMode(mode) {
   viMode = mode;
   if (mode === 'normal') viPending = '';
-  const ind = $("vi-mode-indicator");
-  const inp = inputEl();
-  if (ind) {
+  document.querySelectorAll('.vi-mode-indicator').forEach(ind => {
     ind.textContent = mode === 'normal' ? '-- NORMAL --' : '';
     ind.style.display = mode === 'normal' ? '' : 'none';
-    ind.style.color = 'var(--theme-error)';
-  }
+  });
+  const inp = inputEl();
   if (inp) {
     inp.style.caretColor = mode === 'normal' ? 'transparent' : '';
     inp.style.backgroundColor = mode === 'normal' ? 'var(--theme-welcomeBoxBg)' : '';
