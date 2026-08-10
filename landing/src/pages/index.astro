@@ -67,7 +67,7 @@ const clientConfig = {
 							spellcheck="false"
 							class="bg-transparent border-none outline-none"
 							style="color:var(--theme-text);font-family:inherit;font-size:inherit;"
-						/>
+						/><span id="vi-mode-indicator" style="color:var(--theme-info);margin-left:1ch;"></span>
 					</div>
 				</div>
 			</div>
@@ -103,6 +103,10 @@ const JOKES = [
 let history = [];
 let histIdx = -1;
 
+// Vi mode state (set -o vi)
+let viMode = 'insert';
+let viPending = '';
+
 // Virtual file system state
 let cwd = ''; // current working directory path (empty = root)
 let cwdStack = []; // for tracking navigation history
@@ -116,14 +120,25 @@ const cwdDisplay = () => $("cwd-display");
 // File system helpers
 function resolvePath(pathStr) {
   if (!pathStr || pathStr === '~') return '';
-  if (pathStr === '.') return cwd;
-  if (pathStr === '..') {
-    const parts = cwd.split('/').filter(Boolean);
-    parts.pop();
-    return parts.join('/');
+  // ~/xxx or /xxx are absolute from root; otherwise relative to cwd
+  let base;
+  let rest = pathStr;
+  if (rest.startsWith('~/')) {
+    base = [];
+    rest = rest.slice(2);
+  } else if (rest.startsWith('/')) {
+    base = [];
+    rest = rest.replace(/^\/+/, '');
+  } else {
+    base = cwd.split('/').filter(Boolean);
   }
-  if (pathStr.startsWith('/')) return pathStr.replace(/^\/+/, '');
-  return cwd ? `${cwd}/${pathStr}` : pathStr;
+  // Normalize segments: handle . and .. anywhere in the path
+  for (const seg of rest.split('/')) {
+    if (!seg || seg === '.') continue;
+    if (seg === '..') { base.pop(); continue; }
+    base.push(seg);
+  }
+  return base.join('/');
 }
 
 function findNode(path) {
@@ -168,6 +183,94 @@ function printPrompt(cmdText) {
     '<div style="color:var(--theme-promptUser)">╭─' + tc.username + "@" + tc.hostname + ' <span style="color:var(--theme-info)">' + getCwdDisplay() + '</span></div>' +
     '<div style="color:var(--theme-promptUser)">╰─<span style="color:var(--theme-promptSymbol)">$ </span><span>' + (cmdText || '') + '</span></div>';
   output().appendChild(line);
+}
+
+// Vi mode helpers (set -o vi)
+function setViMode(mode) {
+  viMode = mode;
+  if (mode === 'normal') viPending = '';
+  const ind = $("vi-mode-indicator");
+  const inp = inputEl();
+  if (ind) {
+    ind.textContent = mode === 'normal' ? '-- NORMAL --' : '';
+    ind.style.color = mode === 'normal' ? 'var(--theme-error)' : '';
+  }
+  if (inp) {
+    inp.style.caretColor = mode === 'normal' ? 'transparent' : '';
+    inp.style.backgroundColor = mode === 'normal' ? 'var(--theme-welcomeBoxBg)' : '';
+    if (mode === 'normal') viClampCursor();
+  }
+}
+
+function viClampCursor() {
+  const inp = inputEl();
+  if (!inp) return;
+  const max = Math.max(0, inp.value.length - 1);
+  const pos = Math.min(inp.selectionStart ?? inp.value.length, max);
+  inp.setSelectionRange(pos, pos);
+}
+
+function viSetPos(p) {
+  const inp = inputEl();
+  if (!inp) return;
+  p = Math.max(0, Math.min(p, inp.value.length - 1));
+  inp.setSelectionRange(p, p);
+}
+
+function handleViKey(e) {
+  e.preventDefault();
+  const inp = inputEl();
+  const val = inp.value;
+  const pos = inp.selectionStart;
+  const k = e.key;
+
+  // Pending 'd' operator: dd deletes the whole line
+  if (viPending === 'd') {
+    viPending = '';
+    if (k === 'd') { inp.value = ''; viSetPos(0); }
+    return;
+  }
+
+  if (k === 'h') { viSetPos(pos - 1); return; }
+  if (k === 'l') { viSetPos(pos + 1); return; }
+  if (k === 'k') { // older history (like ArrowUp)
+    if (histIdx < history.length - 1) { histIdx++; inp.value = history[histIdx]; viClampCursor(); }
+    return;
+  }
+  if (k === 'j') { // newer history (like ArrowDown)
+    if (histIdx > 0) { histIdx--; inp.value = history[histIdx]; }
+    else { histIdx = -1; inp.value = ''; }
+    viClampCursor();
+    return;
+  }
+  if (k === '0') { viSetPos(0); return; }
+  if (k === '$') { viSetPos(val.length - 1); return; }
+  if (k === '^') { viSetPos(val.search(/\S/)); return; }
+  if (k === 'w') {
+    const m = val.slice(pos).match(/^\S*\s*\S/);
+    viSetPos(m ? pos + m[0].length - 1 : val.length - 1);
+    return;
+  }
+  if (k === 'b') {
+    const m = val.slice(0, pos).match(/\S(\s*\S)*$/);
+    viSetPos(m ? m.index : 0);
+    return;
+  }
+  if (k === 'i') { setViMode('insert'); return; }
+  if (k === 'a') { setViMode('insert'); inp.setSelectionRange(pos + 1, pos + 1); return; }
+  if (k === 'I') { setViMode('insert'); inp.setSelectionRange(0, 0); return; }
+  if (k === 'A') { setViMode('insert'); inp.setSelectionRange(val.length, val.length); return; }
+  if (k === 'x') {
+    inp.value = val.slice(0, pos) + val.slice(pos + 1);
+    viSetPos(pos);
+    return;
+  }
+  if (k === 'D') {
+    inp.value = val.slice(0, pos);
+    viClampCursor();
+    return;
+  }
+  if (k === 'd') { viPending = 'd'; return; }
 }
 
 function scroll() {
@@ -316,6 +419,8 @@ function handleCommand(raw) {
       ["uptime", "Show uptime"],
     ];
     builtins.forEach(([k, v]) => lines.push("  " + k.padEnd(14) + "- " + v));
+    lines.push("");
+    lines.push("  vi mode: press Esc for normal mode (hjkl move, dd clear, x/D delete, A/I/a/i insert, w/b word, 0/$ line)");
     Object.entries(tc.customCommands).forEach(([k, v]) => {
       lines.push("  " + k.padEnd(14) + "- " + v.description);
     });
@@ -481,6 +586,17 @@ document.addEventListener("DOMContentLoaded", () => {
   inp.focus();
 
   inp.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      // Modal open? Let the document-level handler close it
+      if (!$("preview-modal").classList.contains("hidden")) return;
+      e.preventDefault();
+      if (viMode === 'insert') setViMode('normal');
+      return;
+    }
+    if (viMode === 'normal' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      handleViKey(e);
+      return;
+    }
     if (e.key === "Enter") {
       e.preventDefault();
       const val = inp.value;
