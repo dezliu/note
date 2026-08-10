@@ -163,6 +163,7 @@ function appendLine(text, color, isHTML = false) {
 
 function printPrompt(cmdText) {
   const line = document.createElement("div");
+  line.className = "space-y-1";
   line.innerHTML =
     '<div style="color:var(--theme-promptUser)">╭─' + tc.username + "@" + tc.hostname + ' <span style="color:var(--theme-info)">' + getCwdDisplay() + '</span></div>' +
     '<div style="color:var(--theme-promptUser)">╰─<span style="color:var(--theme-promptSymbol)">$ </span><span>' + (cmdText || '') + '</span></div>';
@@ -309,6 +310,7 @@ function handleCommand(raw) {
       ["date", "Show current date"],
       ["pwd", "Print working directory"],
       ["ls", "List files in current directory"],
+      ["ll", "List files in long format (ls -l)"],
       ["cd", "Change directory"],
       ["cat", "Preview a markdown file"],
       ["uptime", "Show uptime"],
@@ -363,16 +365,16 @@ function handleCommand(raw) {
     return;
   }
 
-  // ls command
-  if (command === "ls") {
-    const showLong = args.includes('-l') || args.includes('-la');
+  // ls command (ll = ls -l)
+  if (command === "ls" || command === "ll") {
+    const showLong = command === "ll" || args.includes('-l') || args.includes('-la');
     const targetArg = args.find(a => !a.startsWith('-'));
     // No argument: list current directory
     const resolvedPath = targetArg ? resolvePath(targetArg) : cwd;
     const node = findNode(resolvedPath);
     
     if (!node || !Array.isArray(node)) {
-      appendLine("ls: cannot access '" + (targetPath || '.') + "': No such file or directory", "var(--theme-error)");
+      appendLine(command + ": cannot access '" + (targetArg || '.') + "': No such file or directory", "var(--theme-error)");
       scroll();
       return;
     }
@@ -506,7 +508,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const tokens = val.split(/\s+/);
       if (tokens.length === 1) {
         // Completing command name
-        const allCmds = ["help","clear","neofetch","about","whoami","skills","date","pwd","ls","cd","cat","uptime","uname", ...Object.keys(tc.customCommands)];
+        const allCmds = ["help","clear","neofetch","about","whoami","skills","date","pwd","ls","ll","cd","cat","uptime","uname", ...Object.keys(tc.customCommands)];
         const matches = allCmds.filter(c => c.startsWith(tokens[0]));
         if (matches.length === 1) {
           inp.value = matches[0] + " ";
