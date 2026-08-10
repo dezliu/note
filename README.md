@@ -15,7 +15,7 @@
 ## 环境要求
 
 - Python 3.9+
-- Node.js 20+
+- Node.js 22.12+（Astro 6 要求）
 - [uv](https://github.com/astral-sh/uv)（推荐）或 pip
 
 ## 安装
