@@ -174,3 +174,6 @@
 .prose th { background: var(--theme-welcomeBoxBg); font-weight: 600; }
 .prose hr { border: none; border-top: 1px solid var(--theme-border); margin: 1rem 0; }
 .prose img { max-width: 100%; height: auto; border-radius: 4px; margin: 0.5rem 0; }
+
+/* Vi-mode block cursor: in normal mode the char under the cursor is selected */
+#terminal-input::selection { background-color: var(--theme-primary); color: #ffffff; }

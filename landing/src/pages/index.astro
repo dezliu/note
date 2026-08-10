@@ -208,16 +208,18 @@ function setViMode(mode) {
 function viClampCursor() {
   const inp = inputEl();
   if (!inp) return;
-  const max = Math.max(0, inp.value.length - 1);
-  const pos = Math.min(inp.selectionStart ?? inp.value.length, max);
-  inp.setSelectionRange(pos, pos);
+  const len = inp.value.length;
+  if (len === 0) { inp.setSelectionRange(0, 0); return; }
+  const pos = Math.min(inp.selectionStart ?? len, len - 1);
+  // Select the char under the cursor to simulate a vim block cursor
+  inp.setSelectionRange(pos, pos + 1);
 }
 
 function viSetPos(p) {
   const inp = inputEl();
   if (!inp) return;
   p = Math.max(0, Math.min(p, inp.value.length - 1));
-  inp.setSelectionRange(p, p);
+  inp.setSelectionRange(p, Math.min(p + 1, inp.value.length));
 }
 
 function handleViKey(e) {
@@ -654,6 +656,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.target === container() || e.target === output()) {
       inp.focus();
     }
+  });
+
+  // In normal mode, restore block cursor (single-char selection) after mouse clicks
+  inp.addEventListener("mouseup", () => {
+    if (viMode === 'normal') viClampCursor();
   });
 
   // Preview modal close handlers
