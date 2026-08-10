@@ -262,11 +262,11 @@ function openPreview(filePath, fileName) {
   // Find file content from embedded file system
   const fileNode = findFileByPath(filePath);
   if (fileNode && fileNode.content) {
-    import('marked').then(({ marked }) => {
-      contentEl.innerHTML = marked.parse(fileNode.content);
-    }).catch(() => {
+    if (window.__renderMarkdown) {
+      window.__renderMarkdown(fileNode.content, contentEl);
+    } else {
       contentEl.textContent = fileNode.content;
-    });
+    }
   } else {
     contentEl.innerHTML = '<div style="color:var(--theme-error);padding:2rem;">Failed to load: ' + fileName + '</div>';
   }
@@ -501,18 +501,26 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     } else if (e.key === "Tab") {
       e.preventDefault();
-      const val = inp.value.trim();
-      if (val) {
-        // Try file/path completion first
-        const completed = completePath(val);
-        if (completed) {
-          inp.value = completed;
-        } else {
-          // Fallback to command completion
-          const allCmds = ["help","clear","neofetch","about","whoami","skills","date","pwd","ls","cd","cat","uptime","uname", ...Object.keys(tc.customCommands)];
-          const match = allCmds.find(c => c.startsWith(val));
-          if (match) inp.value = match;
+      const val = inp.value;
+      if (!val) return;
+      const tokens = val.split(/\s+/);
+      if (tokens.length === 1) {
+        // Completing command name
+        const allCmds = ["help","clear","neofetch","about","whoami","skills","date","pwd","ls","cd","cat","uptime","uname", ...Object.keys(tc.customCommands)];
+        const matches = allCmds.filter(c => c.startsWith(tokens[0]));
+        if (matches.length === 1) {
+          inp.value = matches[0] + " ";
+        } else if (matches.length > 1) {
+          appendLine(matches.join("  "), "var(--theme-info)");
+          scroll();
         }
+      } else {
+        // Completing path argument (last token)
+        const lastToken = tokens[tokens.length - 1];
+        const prefix = val.substring(0, val.length - lastToken.length);
+        if (!lastToken) return;
+        const completed = completePath(lastToken);
+        if (completed) inp.value = prefix + completed;
       }
     } else if (e.ctrlKey && e.key === "l") {
       e.preventDefault();
@@ -536,4 +544,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.key === "Escape") closePreview();
   });
 });
+</script>
+
+<script>
+  import { marked } from "marked";
+  window.__renderMarkdown = (content, el) => {
+    el.innerHTML = marked.parse(content);
+  };
 </script>
