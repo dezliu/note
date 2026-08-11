@@ -379,7 +379,14 @@ function openPreview(filePath, fileName) {
 
 function closePreview() {
   $("preview-modal").classList.add('hidden');
-  inputEl()?.focus();
+  const inp = inputEl();
+  if (!inp) return;
+  // Focus immediately and again on next tick in case Esc/click
+  // caused a blur that lands after this handler
+  inp.focus({ preventScroll: true });
+  setTimeout(() => {
+    if (document.activeElement !== inp) inp.focus({ preventScroll: true });
+  }, 0);
 }
 
 // Command handlers
