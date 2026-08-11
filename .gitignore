@@ -14,6 +14,11 @@ site/
 site-docs/
 .cache/
 
+# Landing (Astro)
+landing/node_modules/
+landing/public/md/
+landing/src/data/fileSystem.json
+
 # IDE / Editor
 .idea/
 .vscode/
@@ -34,3 +39,4 @@ htmlcov/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.tmp-*.png

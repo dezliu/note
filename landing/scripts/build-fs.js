@@ -13,6 +13,8 @@ const __dirname = path.dirname(__filename);
 
 const DOCS_DIR = path.resolve(__dirname, '..', '..', 'docs');
 const OUTPUT_FILE = path.resolve(__dirname, '..', 'src', 'data', 'fileSystem.json');
+// md files are copied here (served statically) so the terminal can fetch them
+const PUBLIC_MD_DIR = path.resolve(__dirname, '..', 'public', 'md');
 
 function buildTree(dirPath, relativePath) {
   const entries = fs.readdirSync(dirPath, { withFileTypes: true });
@@ -32,13 +34,15 @@ function buildTree(dirPath, relativePath) {
       });
     } else if (entry.isFile() && entry.name.endsWith('.md')) {
       const stat = fs.statSync(entryPath);
-      const content = fs.readFileSync(entryPath, 'utf-8');
+      // Copy md to public/md/ for runtime fetching (keeps fileSystem.json small)
+      const targetPath = path.join(PUBLIC_MD_DIR, entryRelative);
+      fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+      fs.copyFileSync(entryPath, targetPath);
       result.push({
         name: entry.name,
         type: 'file',
         path: entryRelative,
         size: stat.size,
-        content: content,
       });
     }
   }
@@ -57,6 +61,12 @@ const outputDir = path.dirname(OUTPUT_FILE);
 if (!fs.existsSync(outputDir)) {
   fs.mkdirSync(outputDir, { recursive: true });
 }
+
+// Reset public/md/ to avoid stale copies
+if (fs.existsSync(PUBLIC_MD_DIR)) {
+  fs.rmSync(PUBLIC_MD_DIR, { recursive: true, force: true });
+}
+fs.mkdirSync(PUBLIC_MD_DIR, { recursive: true });
 
 const tree = buildTree(DOCS_DIR, '');
 fs.writeFileSync(OUTPUT_FILE, JSON.stringify(tree, null, 2));

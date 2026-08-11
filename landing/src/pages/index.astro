@@ -18,6 +18,10 @@ const clientConfig = {
   username: terminalConfig.username,
   hostname: terminalConfig.hostname,
   welcomeMessage: welcomeLines,
+  // Static md files (copied to public/md/ by scripts/build-fs.js)
+  mdBaseUrl: import.meta.env.BASE_URL + 'md/',
+  // MkDocs site base for resolving image/asset links inside md files
+  docsBaseUrl: import.meta.env.DEV ? 'http://127.0.0.1:8000/note/docs/' : 'https://dezliu.github.io/note/docs/',
   customCommands: Object.fromEntries(
     Object.entries(terminalConfig.customCommands).map(([key, val]) => [
       key,
@@ -292,7 +296,7 @@ function renderClickableEntry(entry, indent = 0) {
     span.title = 'Click to cd into ' + entry.name;
     span.addEventListener('click', () => {
       const newPath = cwd ? `${cwd}/${entry.name}` : entry.name;
-      handleCommand(`cd ${newPath}`);
+      handleCommand(`cd "${newPath}"`);
     });
   } else {
     span.style.color = 'var(--theme-text)';
@@ -342,18 +346,6 @@ function completePath(partial) {
   return null;
 }
 
-function findFileByPath(filePath) {
-  const parts = filePath.split('/').filter(Boolean);
-  let node = tc.fileSystem;
-  for (const part of parts) {
-    if (!Array.isArray(node)) return null;
-    const child = node.find(n => n.name === part);
-    if (!child) return null;
-    node = child.type === 'dir' ? child.children : child;
-  }
-  return node && node.type === 'file' ? node : null;
-}
-
 // Preview modal
 function openPreview(filePath, fileName) {
   const modal = $("preview-modal");
@@ -364,17 +356,31 @@ function openPreview(filePath, fileName) {
   contentEl.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--theme-muted);">Loading...</div>';
   modal.classList.remove('hidden');
   
-  // Find file content from embedded file system
-  const fileNode = findFileByPath(filePath);
-  if (fileNode && fileNode.content) {
-    if (window.__renderMarkdown) {
-      window.__renderMarkdown(fileNode.content, contentEl);
-    } else {
-      contentEl.textContent = fileNode.content;
-    }
-  } else {
-    contentEl.innerHTML = '<div style="color:var(--theme-error);padding:2rem;">Failed to load: ' + fileName + '</div>';
-  }
+  // Fetch raw markdown from static hosting (public/md/)
+  const mdUrl = tc.mdBaseUrl + filePath.split('/').map(encodeURIComponent).join('/');
+  fetch(mdUrl)
+    .then(r => {
+      if (!r.ok) throw new Error('File not found');
+      return r.text();
+    })
+    .then(md => {
+      if (window.__renderMarkdown) {
+        window.__renderMarkdown(md, contentEl);
+      } else {
+        contentEl.textContent = md;
+      }
+      // Rewrite relative image/asset URLs to the MkDocs docs site
+      const dir = filePath.includes('/') ? filePath.slice(0, filePath.lastIndexOf('/') + 1) : '';
+      contentEl.querySelectorAll('img').forEach(img => {
+        const src = img.getAttribute('src') || '';
+        if (/^(https?:)?\/\//.test(src) || src.startsWith('data:') || src.startsWith('/')) return;
+        img.src = tc.docsBaseUrl + (dir + decodeURIComponent(src)).split('/').map(encodeURIComponent).join('/');
+      });
+      contentEl.scrollTop = 0;
+    })
+    .catch(() => {
+      contentEl.innerHTML = '<div style="color:var(--theme-error);padding:2rem;">Failed to load: ' + fileName + '</div>';
+    });
 }
 
 function closePreview() {
@@ -390,6 +396,27 @@ function closePreview() {
 }
 
 // Command handlers
+// Split a command line into tokens, honoring single/double quotes
+function tokenize(str) {
+  const tokens = [];
+  let cur = '';
+  let quote = null;
+  for (const ch of str) {
+    if (quote) {
+      if (ch === quote) quote = null;
+      else cur += ch;
+    } else if (ch === '"' || ch === "'") {
+      quote = ch;
+    } else if (/\s/.test(ch)) {
+      if (cur) { tokens.push(cur); cur = ''; }
+    } else {
+      cur += ch;
+    }
+  }
+  if (cur) tokens.push(cur);
+  return tokens;
+}
+
 function handleCommand(raw) {
   const cmd = raw.trim();
   if (!cmd) return;
@@ -399,7 +426,7 @@ function handleCommand(raw) {
 
   printPrompt(cmd);
 
-  const parts = cmd.split(/\s+/);
+  const parts = tokenize(cmd);
   const command = parts[0];
   const args = parts.slice(1);
 
@@ -641,12 +668,29 @@ document.addEventListener("DOMContentLoaded", () => {
           scroll();
         }
       } else {
-        // Completing path argument (last token)
-        const lastToken = tokens[tokens.length - 1];
-        const prefix = val.substring(0, val.length - lastToken.length);
+        // Completing path argument (last token), honor an open quote
+        const quoteMatch = val.match(/(["'])((?:(?!\1).)*)$/);
+        let prefix, lastToken, quote = '';
+        if (quoteMatch) {
+          quote = quoteMatch[1];
+          lastToken = quoteMatch[2];
+          prefix = val.substring(0, val.length - lastToken.length);
+        } else {
+          const tokens = val.split(/\s+/);
+          lastToken = tokens[tokens.length - 1];
+          prefix = val.substring(0, val.length - lastToken.length);
+        }
         if (!lastToken) return;
         const completed = completePath(lastToken);
-        if (completed) inp.value = prefix + completed;
+        if (!completed) return;
+        const isDir = completed.endsWith('/');
+        if (quote) {
+          inp.value = prefix + completed + (isDir ? '' : quote);
+        } else if (/\s/.test(completed)) {
+          inp.value = prefix + '"' + completed + (isDir ? '' : '"');
+        } else {
+          inp.value = prefix + completed;
+        }
       }
     } else if (e.ctrlKey && e.key === "l") {
       e.preventDefault();
