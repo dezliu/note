@@ -191,3 +191,51 @@ span.terminal-mkdocs-side-nav-section-no-index {
     max-width: 100%;
     overflow-x: auto;
 }
+
+/* ════════════════════════════════════════════
+   侧边栏 — 宽度限制与折叠切换
+   ══════════════════════════════════════════════ */
+
+/* 桌面端：限制侧栏列宽（覆盖主题 inline 的 4fr 9fr） */
+@media only screen and (min-width: 70em) {
+    .container .terminal-mkdocs-main-grid {
+        grid-template-columns: minmax(200px, 300px) 1fr;
+    }
+}
+
+#terminal-mkdocs-side-panel {
+    min-width: 0;
+}
+
+/* ── 折叠/展开按钮 ── */
+#side-nav-toggle {
+    position: fixed;
+    top: 3.6rem;
+    left: 0.75rem;
+    z-index: 1050;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    line-height: 1;
+    font-size: 1rem;
+    font-family: inherit;
+    color: var(--theme-primary, #1a95e0);
+    background: var(--background, #fff);
+    border: 1px solid var(--theme-primary, #1a95e0);
+    border-radius: 4px;
+    cursor: pointer;
+    opacity: 0.75;
+}
+
+#side-nav-toggle:hover {
+    opacity: 1;
+}
+
+/* ── 折叠态：隐藏侧栏，内容独占 ── */
+body.side-nav-collapsed #terminal-mkdocs-side-panel {
+    display: none;
+}
+
+body.side-nav-collapsed .terminal-mkdocs-main-grid {
+    grid-template-columns: auto;
+}

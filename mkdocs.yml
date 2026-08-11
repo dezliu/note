@@ -14,6 +14,9 @@ theme:
 extra_css:
   - css/custom.css
 
+extra_javascript:
+  - js/side-nav.js
+
 plugins:
   - search
 
