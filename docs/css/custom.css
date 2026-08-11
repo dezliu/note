@@ -169,3 +169,25 @@ span.terminal-mkdocs-side-nav-section-no-index {
 .terminal-mkdocs-side-nav-li-ul > .terminal-mkdocs-side-nav-li-ul-li > span {
     position: relative;
 }
+
+/* ════════════════════════════════════════════
+   内容区 — 防止超长字符串撑破布局
+   ══════════════════════════════════════════════ */
+
+/* grid 子项默认 min-width:auto，会被不可断行的长串撑宽 */
+.terminal-mkdocs-main-grid {
+    min-width: 0;
+}
+
+#terminal-mkdocs-main-content {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+/* 代码块超长行改为横向滚动，不撑破页面 */
+#terminal-mkdocs-main-content pre {
+    max-width: 100%;
+    overflow-x: auto;
+}

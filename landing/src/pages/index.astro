@@ -19,7 +19,7 @@ const clientConfig = {
   hostname: terminalConfig.hostname,
   welcomeMessage: welcomeLines,
   // Static md files (copied to public/md/ by scripts/build-fs.js)
-  mdBaseUrl: import.meta.env.BASE_URL + 'md/',
+  mdBaseUrl: import.meta.env.BASE_URL.replace(/\/?$/, '/') + 'md/',
   // MkDocs site base for resolving image/asset links inside md files
   docsBaseUrl: import.meta.env.DEV ? 'http://127.0.0.1:8000/note/docs/' : 'https://dezliu.github.io/note/docs/',
   customCommands: Object.fromEntries(
