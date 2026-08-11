@@ -107,6 +107,9 @@ const JOKES = [
 let history = [];
 let histIdx = -1;
 
+// Tab completion cycling state
+let tabState = null;
+
 // Vi mode state (set -o vi)
 let viMode = 'insert';
 let viPending = '';
@@ -312,9 +315,10 @@ function renderClickableEntry(entry, indent = 0) {
 }
 
 // Tab completion for file/directory names
-function completePath(partial) {
+// Returns all completion candidates for a partial path; [] if none
+function completePathMatches(partial) {
   const node = findNode(cwd);
-  if (!node || !Array.isArray(node)) return null;
+  if (!node || !Array.isArray(node)) return [];
   
   const lastSlash = partial.lastIndexOf('/');
   const dirPart = lastSlash >= 0 ? partial.substring(0, lastSlash + 1) : '';
@@ -325,25 +329,12 @@ function completePath(partial) {
   if (dirPart) {
     const resolvedDir = resolvePath(dirPart.slice(0, -1));
     searchNode = findNode(resolvedDir);
-    if (!searchNode || !Array.isArray(searchNode)) return null;
+    if (!searchNode || !Array.isArray(searchNode)) return [];
   }
   
-  const matches = searchNode.filter(n => n.name.startsWith(namePart));
-  
-  if (matches.length === 1) {
-    const match = matches[0];
-    const completed = dirPart + match.name + (match.type === 'dir' ? '/' : '');
-    return completed;
-  } else if (matches.length > 1) {
-    // Show possible completions
-    matches.forEach(m => {
-      const display = m.type === 'dir' ? m.name + '/' : m.name;
-      appendLine(display, 'var(--theme-info)');
-    });
-    scroll();
-    return null;
-  }
-  return null;
+  return searchNode
+    .filter(n => n.name.startsWith(namePart))
+    .map(n => dirPart + n.name + (n.type === 'dir' ? '/' : ''));
 }
 
 // Preview modal
@@ -545,7 +536,11 @@ function handleCommand(raw) {
 
   // cd command
   if (command === "cd") {
-    const target = args[0] || '';
+    let target = args[0] || '';
+    // Tolerate unquoted paths with spaces: cd Java 高级
+    if (target && target !== '~' && args.length > 1 && !findNode(resolvePath(target))) {
+      target = args.join(' ');
+    }
     if (!target || target === '~') {
       cwd = '';
       updateCwdDisplay();
@@ -565,11 +560,16 @@ function handleCommand(raw) {
 
   // cat command
   if (command === "cat") {
-    const target = args[0];
+    let target = args[0];
     if (!target) {
       appendLine("cat: missing file argument", "var(--theme-error)");
       scroll();
       return;
+    }
+    // Tolerate unquoted paths with spaces: cat 03.Session快速入门.md with dirs
+    if (args.length > 1) {
+      const first = findNode(resolvePath(target));
+      if (!first || first.type !== 'file') target = args.join(' ');
     }
     const resolvedPath = resolvePath(target);
     const node = findNode(resolvedPath);
@@ -621,6 +621,8 @@ document.addEventListener("DOMContentLoaded", () => {
   inp.focus();
 
   inp.addEventListener("keydown", (e) => {
+    // Any non-Tab key invalidates the Tab-cycling state
+    if (e.key !== 'Tab') tabState = null;
     if (e.key === "Escape") {
       // Modal open? Let the document-level handler close it
       if (!$("preview-modal").classList.contains("hidden")) return;
@@ -667,30 +669,42 @@ document.addEventListener("DOMContentLoaded", () => {
           appendLine(matches.join("  "), "var(--theme-info)");
           scroll();
         }
+        return;
+      }
+      // Completing path argument (last token), honor an open quote
+      const quoteMatch = val.match(/(["'])((?:(?!\1).)*)$/);
+      let prefix, lastToken, quote = '';
+      if (quoteMatch) {
+        quote = quoteMatch[1];
+        lastToken = quoteMatch[2];
+        prefix = val.substring(0, val.length - lastToken.length);
       } else {
-        // Completing path argument (last token), honor an open quote
-        const quoteMatch = val.match(/(["'])((?:(?!\1).)*)$/);
-        let prefix, lastToken, quote = '';
-        if (quoteMatch) {
-          quote = quoteMatch[1];
-          lastToken = quoteMatch[2];
-          prefix = val.substring(0, val.length - lastToken.length);
-        } else {
-          const tokens = val.split(/\s+/);
-          lastToken = tokens[tokens.length - 1];
-          prefix = val.substring(0, val.length - lastToken.length);
-        }
-        if (!lastToken) return;
-        const completed = completePath(lastToken);
-        if (!completed) return;
-        const isDir = completed.endsWith('/');
-        if (quote) {
-          inp.value = prefix + completed + (isDir ? '' : quote);
-        } else if (/\s/.test(completed)) {
-          inp.value = prefix + '"' + completed + (isDir ? '' : '"');
-        } else {
-          inp.value = prefix + completed;
-        }
+        const tokens = val.split(/\s+/);
+        lastToken = tokens[tokens.length - 1];
+        prefix = val.substring(0, val.length - lastToken.length);
+      }
+      if (!lastToken) return;
+      // New prefix since last Tab → recompute candidates
+      if (!tabState || tabState.base !== prefix + quote + lastToken) {
+        const candidates = completePathMatches(lastToken);
+        if (!candidates.length) return;
+        tabState = { base: prefix + quote + lastToken, prefix, quote, candidates, idx: -1, shown: false };
+      }
+      const st = tabState;
+      st.idx = (st.idx + 1) % st.candidates.length;
+      if (!st.shown && st.candidates.length > 1) {
+        appendLine(st.candidates.join('  '), "var(--theme-info)");
+        scroll();
+        st.shown = true;
+      }
+      const completed = st.candidates[st.idx];
+      const isDir = completed.endsWith('/');
+      if (st.quote) {
+        inp.value = st.prefix + completed + (isDir ? '' : st.quote);
+      } else if (/\s/.test(completed)) {
+        inp.value = st.prefix + '"' + completed + (isDir ? '' : '"');
+      } else {
+        inp.value = st.prefix + completed;
       }
     } else if (e.ctrlKey && e.key === "l") {
       e.preventDefault();
