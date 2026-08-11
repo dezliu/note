@@ -5,6 +5,6 @@
 - 更新时间：2020-03-02 01:58:24 UTC
 - 印象笔记 GUID：c9883862-5e0b-4701-8e58-f1ad6e4f98f1
 
-[travel.zip](travel.zip_assets/travel.zip)
+`travel.zip`（附件未随迁移导入）
 
 > 注：原始 zip 附件（70MB）未随迁移导入 git 仓库，如需请从印象笔记重新导出。
