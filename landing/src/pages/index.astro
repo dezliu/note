@@ -684,11 +684,25 @@ document.addEventListener("DOMContentLoaded", () => {
         prefix = val.substring(0, val.length - lastToken.length);
       }
       if (!lastToken) return;
-      // New prefix since last Tab → recompute candidates
-      if (!tabState || tabState.base !== prefix + quote + lastToken) {
-        const candidates = completePathMatches(lastToken);
+      // tabState is cleared by any non-Tab key, so if it exists just cycle
+      if (!tabState) {
+        let candidates = completePathMatches(lastToken);
+        if (!candidates.length && !quote) {
+          // Merge preceding tokens to support unquoted paths with spaces
+          const allTokens = val.split(/\s+/);
+          for (let k = 2; k <= allTokens.length; k++) {
+            const joined = allTokens.slice(-k).join(' ');
+            const merged = completePathMatches(joined);
+            if (merged.length) {
+              lastToken = joined;
+              prefix = val.substring(0, val.length - joined.length);
+              candidates = merged;
+              break;
+            }
+          }
+        }
         if (!candidates.length) return;
-        tabState = { base: prefix + quote + lastToken, prefix, quote, candidates, idx: -1, shown: false };
+        tabState = { prefix, quote, candidates, idx: -1, shown: false };
       }
       const st = tabState;
       st.idx = (st.idx + 1) % st.candidates.length;
